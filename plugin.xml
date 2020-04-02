@@ -30,7 +30,7 @@
 
     <description>Schedules and queries for local notifications</description>
 
-    <repo>https://github.com/Steffaan/cordova-plugin-local-notifications.git</repo>
+    <repo>https://github.com/katzer/cordova-plugin-local-notifications.git</repo>
 
     <keywords>appplant, notification, local notification, user notification</keywords>
 
@@ -40,11 +40,11 @@
 
     <!-- cordova -->
     <engines>
-        <engine name="cordova"         version=">=7.1.0"  />
+        <engine name="cordova"         version=">=3.6.0"  />
         <engine name="cordova-plugman" version=">=4.3.0"  />
-        <engine name="cordova-android" version=">=5.0.0"  />
+        <engine name="cordova-android" version=">=6.0.0"  />
         <engine name="cordova-windows" version=">=4.2.0"  />
-        <!-- <engine name="android-sdk"     version=">=26" /> -->
+        <engine name="android-sdk"     version=">=26" />
         <engine name="apple-ios"       version=">=10.0.0" />
     </engines>
 
@@ -135,6 +135,7 @@
         </config-file>
 
         <config-file target="AndroidManifest.xml" parent="/manifest">
+            <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
             <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
             <uses-permission android:name="android.permission.WAKE_LOCK" />
         </config-file>
@@ -205,6 +206,10 @@
 
         <source-file
             src="src/android/notification/util/AssetUtil.java"
+            target-dir="src/de/appplant/cordova/plugin/notification/util" />
+
+        <source-file
+            src="src/android/notification/util/LaunchUtils.java"
             target-dir="src/de/appplant/cordova/plugin/notification/util" />
 
         <source-file
