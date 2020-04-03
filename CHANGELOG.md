@@ -1,6 +1,26 @@
 Changelog
 ---------
 
+#### Version 0.9.0-beta.4
+- Platform enhancements
+  - Android 8-10 device support
+  - Android 10 SDK support (using androidx libraries rather than support libraries)
+    - Note: If you are not building with API 29 on Android, you can use https://www.npmjs.com/package/cordova-plugin-androidx for backwards compatibility.
+- Enhancements (Android)
+  - New `autoLaunch` attribute.
+    - Notification launches application if closed (Android <= 9).
+    - Notification fires the trigger event.
+    - App has the option to run some logic and schedule (or not schedule) an immediate alarm.
+ - New `alarmVolume` attribute. Can force application to increase device notification volume prior to playing sound.
+ - New `resetDelay` attribute. Delay to reset alarmVolume on the device back to its original settings
+ - **Android Channel Support**
+  - New `channelName` attribute for the name of the notification channel to use
+  - New `channelId` attribute. If passed in, a notification channel will be created (using volume and vibration settings to determine importance)
+- Android: Support for excluding an application from battery optimization settings.
+- Android: Support for allowing an application permissions to override Do Not Disturb.
+
+---
+
 #### Version 0.9.3 (09.05.2019)
 - Add namespace to provider authority to prevent crashes on Android.
 
@@ -19,6 +39,13 @@ Changelog
 - Added support for Android 8+ (Oreo)
 - Add property `when` (Android)
 
+#### Version 0.9.1 (13.12.2018)
+- Addedd support for mutliple channels
+- Added new property `channelDescription` to specify the name / description of the channel
+- Channels will now use the priority level based on the settings given to the notification
+- Fixed default notification sound (Android)
+- Fixed permission check (Android)
+- Fixed (silent) vibration (Android)
 Old changelog below
 ---------
  
