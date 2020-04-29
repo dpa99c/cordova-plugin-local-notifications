@@ -61,8 +61,11 @@ exports._defaults = {
     trigger       : { type : 'calendar' },
     vibrate       : false,
     wakeup        : true,
+    when          : 0,
     channelId     : null,
-    when          : 0
+    wakeLockTimeout: null,
+    fullScreenIntent: false,
+    triggerInApp: false
 };
 
 // Event listener
