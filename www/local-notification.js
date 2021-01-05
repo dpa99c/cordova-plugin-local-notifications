@@ -29,6 +29,7 @@ exports._defaults = {
     autoClear     : true,
     badge         : null,
     channel       : null,
+    channelDescription: null,
     clock         : true,
     color         : null,
     data          : null,
@@ -55,7 +56,8 @@ exports._defaults = {
     title         : '',
     trigger       : { type : 'calendar' },
     vibrate       : false,
-    wakeup        : true
+    wakeup        : true,
+	when		  : 0
 };
 
 // Event listener
@@ -898,7 +900,7 @@ exports._exec = function (action, args, callback, scope) {
 
     if (Array.isArray(args)) {
         params = args;
-    } else if (args) {
+    } else if (args != null) {
         params.push(args);
     }
 

@@ -152,6 +152,9 @@ public final class Builder {
                     options.getProgressMaxValue(),
                     options.getProgressValue(),
                     options.isIndeterminateProgress());
+        } else {
+            // Only set this when no progressbar is used, to prevent a timer reset.
+            builder.setWhen(options.getWhen());
         }
 
         if (options.hasLargeIcon()) {

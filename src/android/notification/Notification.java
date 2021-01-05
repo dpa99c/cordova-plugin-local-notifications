@@ -53,6 +53,10 @@ import static android.os.Build.VERSION_CODES.M;
 import static android.support.v4.app.NotificationCompat.PRIORITY_HIGH;
 import static android.support.v4.app.NotificationCompat.PRIORITY_MAX;
 import static android.support.v4.app.NotificationCompat.PRIORITY_MIN;
+import static android.support.v4.app.NotificationManagerCompat.IMPORTANCE_MIN;
+import static android.support.v4.app.NotificationManagerCompat.IMPORTANCE_LOW;
+import static android.support.v4.app.NotificationManagerCompat.IMPORTANCE_MAX;
+import static android.support.v4.app.NotificationManagerCompat.IMPORTANCE_HIGH;
 
 /**
  * Wrapper class around OS notification class. Handles basic operations
@@ -222,10 +226,10 @@ public final class Notification {
 
             try {
                 switch (options.getPrio()) {
-                    case PRIORITY_MIN:
+                    case PRIORITY_MIN: case IMPORTANCE_MIN: case IMPORTANCE_LOW:
                         mgr.setExact(RTC, time, pi);
                         break;
-                    case PRIORITY_MAX:
+                    case PRIORITY_MAX: case IMPORTANCE_MAX: case IMPORTANCE_HIGH:
                         if (SDK_INT >= M) {
                             mgr.setExactAndAllowWhileIdle(RTC_WAKEUP, time, pi);
                         } else {

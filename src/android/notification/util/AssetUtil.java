@@ -248,6 +248,10 @@ public final class AssetUtil {
     public int getResId(String resPath) {
         int resId = getResId(context.getResources(), resPath);
 
+        if (resId == 0) {
+            resId = getResId(Resources.getSystem(), resPath);
+        }
+
         return resId;
     }
 
@@ -353,7 +357,7 @@ public final class AssetUtil {
      */
     private Uri getUriFromFile(File file) {
         try {
-            String authority = context.getPackageName() + "localnotifications.provider";
+            String authority = context.getPackageName() + ".localnotifications.provider";
             return AssetProvider.getUriForFile(context, authority, file);
         } catch (IllegalArgumentException e) {
             e.printStackTrace();
