@@ -261,7 +261,7 @@ public final class Manager {
         for (String key : keys) {
             try {
                 ids.add(Integer.parseInt(key));
-            } catch (NumberFormatException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
@@ -398,7 +398,7 @@ public final class Manager {
             JSONObject dict = new JSONObject(json);
 
             return new Options(context, dict);
-        } catch (JSONException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             return null;
         }
