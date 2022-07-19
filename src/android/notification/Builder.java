@@ -150,10 +150,15 @@ public final class Builder {
                 .setTimeoutAfter(options.getTimeout())
                 .setLights(options.getLedColor(), options.getLedOn(), options.getLedOff());
 
-        if (sound != Uri.EMPTY && !isUpdate()) {
+        if (!sound.equals(Uri.EMPTY) && !isUpdate()) {
             builder.setSound(sound);
         }
 
+        // API < 26.  Setting sound to null will prevent playing if we have no sound for any reason,
+        // including a 0 volume.
+        if (options.isWithoutSound()) {
+            builder.setSound(null);
+        }
         if (options.isWithProgressBar()) {
             builder.setProgress(
                     options.getProgressMaxValue(),
