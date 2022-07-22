@@ -45,7 +45,8 @@ import java.util.Random;
 
 import de.appplant.cordova.plugin.notification.action.Action;
 
-import static android.app.PendingIntent.FLAG_UPDATE_CURRENT;
+import static androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC;
+import static androidx.core.app.NotificationCompat.PRIORITY_MAX;
 import static de.appplant.cordova.plugin.notification.Notification.EXTRA_UPDATE;
 
 /**
@@ -138,12 +139,13 @@ public final class Builder {
                 .setContentTitle(options.getTitle())
                 .setContentText(options.getText())
                 .setTicker(options.getText())
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(options.getText()))
                 .setNumber(options.getNumber())
                 .setAutoCancel(options.isAutoClear())
                 .setOngoing(options.isSticky())
                 .setColor(options.getColor())
-                .setVisibility(options.getVisibility())
-                .setPriority(options.getPrio())
+                .setVisibility(VISIBILITY_PUBLIC)
+                .setPriority(PRIORITY_MAX)
                 .setShowWhen(options.showClock())
                 .setUsesChronometer(options.showChronometer())
                 .setGroup(options.getGroup())
