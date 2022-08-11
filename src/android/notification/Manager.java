@@ -111,30 +111,25 @@ public final class Manager {
      * @return channel ID of newly created (or reused) channel
      */
     public String buildChannelWithOptions(Uri soundUri, boolean shouldVibrate, boolean hasSound,
-            CharSequence channelName, String channelId) {
+            CharSequence channelName, String channelId, int importance) {
         String defaultChannelId, newChannelId;
         CharSequence defaultChannelName;
-        int importance;
 
         if (hasSound && shouldVibrate) {
             defaultChannelId = Options.SOUND_VIBRATE_CHANNEL_ID;
             defaultChannelName = Options.SOUND_VIBRATE_CHANNEL_NAME;
-            importance = IMPORTANCE_HIGH;
             shouldVibrate = true;
         } else if (hasSound) {
             defaultChannelId = Options.SOUND_CHANNEL_ID;
             defaultChannelName = Options.SOUND_CHANNEL_NAME;
-            importance = IMPORTANCE_DEFAULT;
             shouldVibrate = false;
         } else if (shouldVibrate) {
             defaultChannelId = Options.VIBRATE_CHANNEL_ID;
             defaultChannelName = Options.VIBRATE_CHANNEL_NAME;
-            importance = IMPORTANCE_LOW;
             shouldVibrate = true;
         } else {
             defaultChannelId = Options.SILENT_CHANNEL_ID;
             defaultChannelName = Options.SILENT_CHANNEL_NAME;
-            importance = IMPORTANCE_LOW;
             shouldVibrate = false;
         }
 

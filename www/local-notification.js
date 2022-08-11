@@ -30,13 +30,12 @@ exports._defaults = {
     autoLaunch    : false,
     autoClear     : true,
     badge         : null,
-    channel       : null,
+    channelName       : null,
     channelDescription: null,
     clock         : true,
     color         : null,
     data          : null,
     defaults      : 0,
-    foreground    : null,
     group         : null,
     groupSummary  : false,
     icon          : null,
@@ -713,14 +712,6 @@ exports._convertPriority = function (options) {
 
     if (typeof prio === 'string') {
         prio = { min: -2, low: -1, high: 1, max: 2 }[prio] || 0;
-    }
-
-    if (options.foreground === true) {
-        prio = Math.max(prio, 1);
-    }
-
-    if (options.foreground === false) {
-        prio = Math.min(prio, 0);
     }
 
     options.priority = prio;

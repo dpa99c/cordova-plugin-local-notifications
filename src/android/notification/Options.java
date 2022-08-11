@@ -49,10 +49,18 @@ import static android.os.Build.VERSION_CODES.O;
 import static androidx.core.app.NotificationCompat.DEFAULT_LIGHTS;
 import static androidx.core.app.NotificationCompat.DEFAULT_SOUND;
 import static androidx.core.app.NotificationCompat.DEFAULT_VIBRATE;
+import static androidx.core.app.NotificationCompat.PRIORITY_DEFAULT;
+import static androidx.core.app.NotificationCompat.PRIORITY_HIGH;
+import static androidx.core.app.NotificationCompat.PRIORITY_LOW;
 import static androidx.core.app.NotificationCompat.PRIORITY_MAX;
 import static androidx.core.app.NotificationCompat.PRIORITY_MIN;
 import static androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC;
 import static androidx.core.app.NotificationCompat.VISIBILITY_SECRET;
+import static androidx.core.app.NotificationManagerCompat.IMPORTANCE_DEFAULT;
+import static androidx.core.app.NotificationManagerCompat.IMPORTANCE_HIGH;
+import static androidx.core.app.NotificationManagerCompat.IMPORTANCE_LOW;
+import static androidx.core.app.NotificationManagerCompat.IMPORTANCE_MAX;
+import static androidx.core.app.NotificationManagerCompat.IMPORTANCE_MIN;
 
 /**
  * Wrapper around the JSON object passed through JS which contains all possible
@@ -276,11 +284,31 @@ public final class Options {
         Uri soundUri = getSound();
         boolean hasSound = !isWithoutSound();
         boolean shouldVibrate = isWithVibration();
-        CharSequence channelName = options.optString("channelName", null);
-        String channelId = options.optString("channelId", null);
+        CharSequence channelName = options.optString("channelDescription", null);
+        String channelId = options.optString("channelName", null);
+        int priority = options.optInt("priority", 0);
+        int importance = IMPORTANCE_DEFAULT;
+        switch (priority){
+            case PRIORITY_MIN:
+                importance = IMPORTANCE_MIN;
+                break;
+            case PRIORITY_LOW:
+                importance = IMPORTANCE_LOW;
+                break;
+            case PRIORITY_DEFAULT:
+                importance = IMPORTANCE_DEFAULT;
+                break;
+            case PRIORITY_HIGH:
+                importance = IMPORTANCE_HIGH;
+                break;
+            case PRIORITY_MAX:
+                importance = IMPORTANCE_MAX;
+                break;
+
+        }
 
         channelId = Manager.getInstance(context).buildChannelWithOptions(soundUri, shouldVibrate, hasSound, channelName,
-                channelId);
+                channelId, importance);
 
         return channelId;
     }
@@ -569,8 +597,8 @@ public final class Options {
 
         return Math.min(Math.max(prio, PRIORITY_MIN), PRIORITY_MAX);
     }
-	
-	/**
+    
+    /**
      * Set the when date for the notification.
      */
     long getWhen() {

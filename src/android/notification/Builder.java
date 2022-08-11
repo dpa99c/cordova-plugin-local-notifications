@@ -145,7 +145,7 @@ public final class Builder {
                 .setOngoing(options.isSticky())
                 .setColor(options.getColor())
                 .setVisibility(VISIBILITY_PUBLIC)
-                .setPriority(PRIORITY_MAX)
+                .setPriority(options.getPrio())
                 .setShowWhen(options.showClock())
                 .setUsesChronometer(options.showChronometer())
                 .setGroup(options.getGroup())
