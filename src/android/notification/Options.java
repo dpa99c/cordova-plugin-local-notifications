@@ -258,6 +258,11 @@ public final class Options {
     public boolean triggerInApp() { return options.optBoolean("triggerInApp", false); }
 
     /**
+     * Whether or not to trigger a notification when the app is in the foreground.
+     */
+    public boolean triggerInForeground() { return options.optBoolean("foreground", false); }
+
+    /**
      * Timeout for wakeup (only used if shallWakeUp() is true)
      */
     public int getWakeLockTimeout() {

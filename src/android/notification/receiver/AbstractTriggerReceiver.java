@@ -57,7 +57,7 @@ abstract public class AbstractTriggerReceiver extends AbstractNotificationReceiv
         if (options == null) return;
 
         Notification toast = null;
-        if(!LocalNotification.isInForeground() || options.triggerInApp()){
+        if(!LocalNotification.isInForeground() || options.triggerInForeground()){
             Builder builder    = new Builder(options);
             toast = buildNotification(builder, bundle);
         }
