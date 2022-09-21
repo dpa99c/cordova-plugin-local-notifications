@@ -25,10 +25,20 @@ package de.appplant.cordova.plugin.notification;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.VectorDrawable;
 import android.net.Uri;
+
+import androidx.annotation.DrawableRes;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationCompat.MessagingStyle.Message;
+import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat;
+
 import android.support.v4.media.session.MediaSessionCompat;
 
 import org.json.JSONArray;
@@ -459,16 +469,33 @@ public final class Options {
      */
     Bitmap getLargeIcon() {
         String icon = options.optString("icon", null);
-        Uri uri = assets.parse(icon);
+        int resId = assets.getResId(icon);
         Bitmap bmp = null;
 
         try {
-            bmp = assets.getIconFromUri(uri);
+            bmp = getBitmapFromDrawable(context, resId);
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         return bmp;
+    }
+
+    public static Bitmap getBitmapFromDrawable(Context context, @DrawableRes int drawableId) {
+        Drawable drawable = AppCompatResources.getDrawable(context, drawableId);
+
+        if (drawable instanceof BitmapDrawable) {
+            return ((BitmapDrawable) drawable).getBitmap();
+        } else if (drawable instanceof VectorDrawableCompat || drawable instanceof VectorDrawable) {
+            Bitmap bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(), drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+            drawable.draw(canvas);
+
+            return bitmap;
+        } else {
+            throw new IllegalArgumentException("unsupported drawable type");
+        }
     }
 
     /**

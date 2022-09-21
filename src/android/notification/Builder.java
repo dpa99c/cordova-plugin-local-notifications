@@ -172,8 +172,9 @@ public final class Builder {
             builder.setWhen(options.getWhen());
         }
 
+        builder.setSmallIcon(options.getSmallIcon());
         if (options.hasLargeIcon()) {
-            builder.setSmallIcon(options.getSmallIcon());
+
 
             Bitmap largeIcon = options.getLargeIcon();
 
@@ -182,8 +183,6 @@ public final class Builder {
             }
 
             builder.setLargeIcon(largeIcon);
-        } else {
-            builder.setSmallIcon(options.getSmallIcon());
         }
 
         if (options.useFullScreenIntent()) {
