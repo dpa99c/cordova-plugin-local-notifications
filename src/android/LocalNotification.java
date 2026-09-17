@@ -2,7 +2,8 @@
  * Apache 2.0 License
  *
  * Copyright (c) Sebastian Katzer 2017
- *
+ * Copyright (c) Manuel Beck 2024
+ * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apache License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -36,8 +37,13 @@ import android.content.Intent;
 import android.provider.Settings;
 import android.net.Uri;
 import android.os.Build;
-import android.app.AlarmManager;
 import android.content.IntentFilter;
+import androidx.core.app.NotificationManagerCompat;
+
+import androidx.core.content.ContextCompat;
+import androidx.core.content.IntentCompat;
+import androidx.core.content.PackageManagerCompat;
+import androidx.core.content.UnusedAppRestrictionsConstants;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaInterface;
@@ -50,18 +56,20 @@ import org.json.JSONObject;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
-import de.appplant.cordova.plugin.notification.Manager;
-import de.appplant.cordova.plugin.notification.Notification;
-import de.appplant.cordova.plugin.notification.Options;
-import de.appplant.cordova.plugin.notification.Request;
-import de.appplant.cordova.plugin.notification.action.ActionGroup;
-import de.appplant.cordova.plugin.notification.util.CallbackContextUtil;
-import de.appplant.cordova.plugin.localnotification.AlarmPermissionReceiver;
+import de.appplant.cordova.plugin.localnotification.Manager;
+import de.appplant.cordova.plugin.localnotification.Notification;
+import de.appplant.cordova.plugin.localnotification.Options;
+import de.appplant.cordova.plugin.localnotification.action.ActionGroup;
+import de.appplant.cordova.plugin.localnotification.util.AssetUtil;
+import de.appplant.cordova.plugin.localnotification.util.CallbackContextUtil;
 
-import static de.appplant.cordova.plugin.notification.Notification.Type.SCHEDULED;
-import static de.appplant.cordova.plugin.notification.Notification.Type.TRIGGERED;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import static de.appplant.cordova.plugin.localnotification.Notification.Type.SCHEDULED;
+import static de.appplant.cordova.plugin.localnotification.Notification.Type.TRIGGERED;
 
 /**
  * This plugin utilizes the Android AlarmManager in combination with local
@@ -75,7 +83,7 @@ public class LocalNotification extends CordovaPlugin {
     public static final String TAG = "LocalNotification";
 
     // Reference to the web view for static access
-    private static WeakReference<CordovaWebView> webView = null;
+    private static WeakReference<CordovaWebView> weakReferenceCordovaWebView = null;
 
     // Indicates if the device is ready (to receive events)
     private static Boolean deviceready = false;
@@ -86,21 +94,16 @@ public class LocalNotification extends CordovaPlugin {
     // Launch details
     private static Pair<Integer, String> launchDetails;
 
-    private AlarmPermissionReceiver alarmPermissionReceiver = new AlarmPermissionReceiver();
+    private static int REQUEST_CODE_MANAGE_UNUSED_APP_RESTRICTIONS = 1005;
 
     /**
      * Called after plugin construction and fields have been initialized.
-     * Prefer to use pluginInitialize instead since there is no value in
-     * having parameters on the initialize() function.
      */
     @Override
-    public void initialize (CordovaInterface cordova, CordovaWebView webView) {
-        LocalNotification.webView = new WeakReference<CordovaWebView>(webView);
-
-        this.cordova.getActivity().getApplicationContext().registerReceiver(
-            alarmPermissionReceiver,
-            new IntentFilter(AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED)
-        );
+    protected void pluginInitialize() {
+        LocalNotification.weakReferenceCordovaWebView = new WeakReference<CordovaWebView>(webView);
+        // Create shared direcotry for assets
+        new AssetUtil(getContext()).getSharedDirectory().mkdir();
     }
 
     /**
@@ -109,7 +112,7 @@ public class LocalNotification extends CordovaPlugin {
      * @param multitasking Flag indicating if multitasking is turned on for app.
      */
     @Override
-    public void onResume (boolean multitasking) {
+    public void onResume(boolean multitasking) {
         super.onResume(multitasking);
         Log.d(TAG, "onResume");
         deviceready();
@@ -123,7 +126,6 @@ public class LocalNotification extends CordovaPlugin {
         super.onDestroy();
         Log.d(TAG, "onDestroy");
         deviceready = false;
-        this.cordova.getActivity().getApplicationContext().unregisterReceiver(alarmPermissionReceiver);
     }
 
     /**
@@ -138,17 +140,16 @@ public class LocalNotification extends CordovaPlugin {
      *
      * @param action  The action to execute.
      * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * @param callbackContext The callback context used when calling back into JavaScript.
      *
      * @return Whether the action was valid.
      */
     @Override
-    public boolean execute (final String action, final JSONArray args,
-                            final CallbackContext command) throws JSONException {
+    public boolean execute(final String action, final JSONArray args, final CallbackContext callbackContext) throws JSONException {
+        Log.d(TAG, "execute, action=" + action + ", args=" + args);
 
         if (action.equals("launch")) {
-            launch(command);
+            launch(callbackContext);
             return true;
         }
 
@@ -156,71 +157,59 @@ public class LocalNotification extends CordovaPlugin {
             public void run() {
                 if (action.equals("ready")) {
                     deviceready();
-                } else
-                if (action.equals("check")) {
-                    check(command);
-                } else
-                if (action.equals("request")) {
-                    request(command);
-                } else
-                if (action.equals("actions")) {
-                    actions(args, command);
-                } else
-                if (action.equals("schedule")) {
-                    schedule(args, command);
-                } else
-                if (action.equals("update")) {
-                    update(args, command);
-                } else
-                if (action.equals("cancel")) {
-                    cancel(args, command);
-                } else
-                if (action.equals("cancelAll")) {
-                    cancelAll(command);
-                } else
-                if (action.equals("clear")) {
-                    clear(args, command);
-                } else
-                if (action.equals("clearAll")) {
-                    clearAll(command);
-                } else
-                if (action.equals("type")) {
-                    type(args, command);
-                } else
-                if (action.equals("ids")) {
-                    ids(args, command);
-                } else
-                if (action.equals("notification")) {
-                    notification(args, command);
-                } else
-                if (action.equals("notifications")) {
-                    notifications(args, command);
-                } else
-                if (action.equals("canScheduleExactAlarms")) {
-                    canScheduleExactAlarms(command);
-                } else
-                if (action.equals("openNotificationSettings")) {
-                    openNotificationSettings(command);
-                } else
-                if (action.equals("openAlarmSettings")) {
-                    openAlarmSettings(command);
+                } else if (action.equals("createChannel")) {
+                    createChannel(args, callbackContext);
+                } else if (action.equals("deleteChannel")) {
+                    deleteChannel(args, callbackContext);
+                } else if (action.equals("hasPermission")) {
+                    hasPermission(callbackContext);
+                } else if (action.equals("requestPermission")) {
+                    requestPermission(callbackContext);
+                } else if (action.equals("actions")) {
+                    actions(args, callbackContext);
+                } else if (action.equals("schedule")) {
+                    schedule(args, callbackContext);
+                } else if (action.equals("update")) {
+                    update(args, callbackContext);
+                } else if (action.equals("cancel")) {
+                    cancel(args, callbackContext);
+                } else if (action.equals("cancelAll")) {
+                    cancelAll(callbackContext);
+                } else if (action.equals("clear")) {
+                    clear(args, callbackContext);
+                } else if (action.equals("clearAll")) {
+                    clearAll(callbackContext);
+                } else if (action.equals("type")) {
+                    type(args, callbackContext);
+                } else if (action.equals("ids")) {
+                    ids(args, callbackContext);
+                } else if (action.equals("notification")) {
+                    notification(args, callbackContext);
+                } else if (action.equals("notifications")) {
+                    notifications(args, callbackContext);
+                } else if (action.equals("canScheduleExactAlarms")) {
+                    canScheduleExactAlarms(callbackContext);
+                } else if (action.equals("openNotificationSettings")) {
+                    openNotificationSettings(callbackContext);
+                } else if (action.equals("openAlarmSettings")) {
+                    openAlarmSettings(callbackContext);
+                } else if (action.equals("getUnusedAppRestrictionsStatus")) {
+                    getUnusedAppRestrictionsStatus(callbackContext);
+                } else if (action.equals("openManageUnusedAppRestrictions")) {
+                    openManageUnusedAppRestrictions(callbackContext);
                 }
             }
         });
 
-        return true;
+        return true; // Action was found
     }
 
     /**
      * Set launchDetails object.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
     @SuppressLint("DefaultLocale")
-    private void launch(CallbackContext command) {
-        if (launchDetails == null)
-            return;
+    private void launch(CallbackContext callbackContext) {
+        if (launchDetails == null) return;
 
         JSONObject details = new JSONObject();
 
@@ -231,321 +220,303 @@ public class LocalNotification extends CordovaPlugin {
             e.printStackTrace();
         }
 
-        command.success(details);
+        callbackContext.success(details);
 
         launchDetails = null;
     }
 
     /**
-     * Ask if user has enabled permission for local notifications.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * Ask if user has enabled permission to post notifications.
      */
-    private void check (CallbackContext command) {
-        boolean allowed = getNotMgr().areNotificationsEnabled();
-        success(command, allowed);
+    private void hasPermission(CallbackContext callbackContext) {
+        successBoolean(callbackContext, NotificationManagerCompat.from(getContext()).areNotificationsEnabled());
     }
 
     /**
      * Ask if if the setting to schedule exact alarms is enabled.
-     *
-     * @param command The callback context used when calling back into JavaScript.
      */
-    private void canScheduleExactAlarms (CallbackContext command) {
-        success(command, getNotMgr().canScheduleExactAlarms());
+    private void canScheduleExactAlarms(CallbackContext callbackContext) {
+        successBoolean(callbackContext, Manager.canScheduleExactAlarms(getContext()));
     }
 
     /**
      * Request permission for local notifications.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * @param callbackContext The callback context used when calling back into JavaScript.
      */
-    private void request (CallbackContext command) {
-        if (getNotMgr().areNotificationsEnabled()) {
-            success(command, true);
-
+    private void requestPermission(CallbackContext callbackContext) {
+        // Permission is granted.
+        if (NotificationManagerCompat.from(getContext()).areNotificationsEnabled()) {
+            successBoolean(callbackContext, true);
             return;
         }
 
+        // If Notifications are disabled and POST_NOTIFICATIONS runtime permission is not supported
+        // we can't ask the user to enable notifications, so we return false.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            // Notifications are disabled and POST_NOTIFICATIONS runtime permission is not supported.
-            success(command, false);
-
+            successBoolean(callbackContext, false);
             return;
         }
+
+        // Store the callback context for later use in onRequestPermissionResult
+        // and get a random request code to identify the context later
+        int randomRequestCode = CallbackContextUtil.storeContext(callbackContext);
 
         // Request the runtime permission.
-        int requestId = CallbackContextUtil.storeContext(command);
-
-        cordova.requestPermissions(this, requestId, new String[]{Manifest.permission.POST_NOTIFICATIONS});
+        cordova.requestPermission(this, randomRequestCode, Manifest.permission.POST_NOTIFICATIONS);
     }
 
     /**
-     * Register action group.
-     *
-     * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * Called by {@link CordovaActivity#onRequestPermissionsResult} when the user grants permissions, which
+     * was called by Android.
+     * 
+     * @deprecated In the future {@link #onRequestPermissionsResult} should be used, but cordova calls still the old
+     * method: https://github.com/apache/cordova-android/issues/1388
+     * @see Android method onRequestPermissionsResult: https://developer.android.com/reference/android/app/Activity#onRequestPermissionsResult(int,%20java.lang.String[],%20int[])
      */
-    private void actions (JSONArray args, CallbackContext command) {
-        int task        = args.optInt(0);
-        String id       = args.optString(1);
-        JSONArray list  = args.optJSONArray(2);
-        Context context = cordova.getActivity();
+    @Override
+    @Deprecated
+    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
+        Log.d(TAG, "onRequestPermissionResult" + 
+            ", requestCode=" + requestCode +
+            ", permissions=" + Arrays.toString(permissions) +
+            ", grantResults=" + Arrays.toString(grantResults));
 
-        switch (task) {
+        // It is possible that the permissions request interaction with the user is interrupted.
+        // In this case the permissions and grantResults array is empty, which should be treated as a cancellation.
+        boolean permissionGranted = grantResults.length > 0 ? grantResults[0] == PackageManager.PERMISSION_GRANTED : false;
+        CallbackContext callbackContext = CallbackContextUtil.getCallbackContext(requestCode);
+
+        if (callbackContext != null) successBoolean(callbackContext, permissionGranted);
+
+        // Remove the saved context
+        CallbackContextUtil.clearContext(requestCode);
+    }
+
+    /**
+     * Register, removes or checks for an action group
+     * @param args The exec() arguments in JSON form.
+     * @param callbackContext The callback context used when calling back into JavaScript.
+     */
+    private void actions(JSONArray args, CallbackContext callbackContext) {
+        String actionGroupId = args.optString(1);
+
+        // The first agrument defines, which method was called
+        switch (args.optInt(0)) {
+            // addActions was called
             case 0:
-                ActionGroup group = ActionGroup.parse(context, id, list);
-                ActionGroup.register(group);
-                command.success();
+                new ActionGroup(getContext(), actionGroupId, args.optJSONArray(2)).store();
+                callbackContext.success();
                 break;
+            // removeActions was called
             case 1:
-                ActionGroup.unregister(id);
-                command.success();
+                ActionGroup.remove(getContext(), actionGroupId);
+                callbackContext.success();
                 break;
+            // hasActions was called
             case 2:
-                boolean found = ActionGroup.isRegistered(id);
-                success(command, found);
+                successBoolean(callbackContext, ActionGroup.get(getContext(), actionGroupId) != null);
                 break;
         }
     }
 
     /**
-     * Schedule multiple local notifications.
-     *
-     * @param toasts  The notifications to schedule.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * Schedule one or multiple local notifications
+     * @param optionsJSONList The notifications to schedule.
      */
-    private void schedule (JSONArray toasts, CallbackContext command) {
-        Manager mgr = getNotMgr();
-
-        for (int i = 0; i < toasts.length(); i++) {
-            JSONObject dict    = toasts.optJSONObject(i);
-            Options options    = new Options(dict);
-            Request request    = new Request(options);
-            Notification toast = mgr.schedule(request, TriggerReceiver.class);
-
-            if (toast != null) {
-                fireEvent("add", toast);
-            }
+    private void schedule(JSONArray optionsJSONList, CallbackContext callbackContext) {
+        for (int index = 0; index < optionsJSONList.length(); index++) {
+            Notification notification = new Notification(getContext(), optionsJSONList.optJSONObject(index));
+            if (notification.scheduleNext()) fireEvent("add", notification);
         }
 
-        check(command);
+        hasPermission(callbackContext);
+    }    
+    
+    /**
+     * Create Notification channel with options.
+     *
+     * @param args  The channel options.
+     * @param callbackContext The callback context used when calling back into
+     *                JavaScript.
+     */
+    private void createChannel(JSONArray args, CallbackContext callbackContext) {
+        Manager.createChannel(getContext(), new Options(getContext(), args.optJSONObject(0)));
+        callbackContext.success();
     }
 
     /**
-     * Update multiple local notifications.
-     *
-     * @param updates Notification properties including their IDs.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * Deletes a notification channel by an id.
+     * @param args Contains the channel id as a String.
      */
-    private void update (JSONArray updates, CallbackContext command) {
-        Manager mgr = getNotMgr();
+    private void deleteChannel(JSONArray args, CallbackContext callbackContext) {
+        getManager().deleteChannel(args.optString(0));
+        callbackContext.success();
+    }
 
-        for (int i = 0; i < updates.length(); i++) {
-            JSONObject update  = updates.optJSONObject(i);
-            int id             = update.optInt("id", 0);
-            Notification toast = mgr.update(id, update, TriggerReceiver.class);
+    /**
+     * Update multiple notifications.
+     * @param optionsList Notification properties including their IDs.
+     * @param callbackContext
+     */
+    private void update(JSONArray optionsList, CallbackContext callbackContext) {
+        for (int index = 0; index < optionsList.length(); index++) {
 
-            if (toast == null)
-                continue;
+            JSONObject updateOptions = optionsList.optJSONObject(index);
+            int notificationId = updateOptions.optInt("id", 0);
+            Notification notification = getManager().update(notificationId, updateOptions);
+            
+            // Notification didn't exist and couldn't be updated
+            if (notification == null) continue;
 
-            fireEvent("update", toast);
+            // Inform webView about the update
+            fireEvent("update", notification);
         }
 
-        check(command);
+        hasPermission(callbackContext);
     }
 
     /**
      * Cancel multiple local notifications.
-     *
-     * @param ids     Set of local notification IDs.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
-    private void cancel (JSONArray ids, CallbackContext command) {
-        Manager mgr = getNotMgr();
-
-        for (int i = 0; i < ids.length(); i++) {
-            int id             = ids.optInt(i, 0);
-            Notification toast = mgr.cancel(id);
-
-            if (toast == null)
-                continue;
-
-            fireEvent("cancel", toast);
+    private void cancel(JSONArray args, CallbackContext callbackContext) {
+        for (int argsIndex = 0; argsIndex < args.length(); argsIndex++) {
+            Notification notification = Notification.getFromSharedPreferences(getContext(), args.optInt(argsIndex, 0));
+            if (notification != null) notification.cancel();
         }
 
-        command.success();
+        callbackContext.success();
     }
 
     /**
      * Cancel all scheduled notifications.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
-    private void cancelAll(CallbackContext command) {
-        getNotMgr().cancelAll();
+    private void cancelAll(CallbackContext callbackContext) {
+        getManager().cancelAll();
         fireEvent("cancelall");
-        command.success();
+        callbackContext.success();
     }
 
     /**
      * Clear multiple local notifications without canceling them.
-     *
-     * @param ids     Set of local notification IDs.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * @param args Set of local notification IDs.
      */
-    private void clear(JSONArray ids, CallbackContext command) {
-        Manager mgr = getNotMgr();
-
-        for (int i = 0; i < ids.length(); i++) {
-            int id             = ids.optInt(i, 0);
-            Notification toast = mgr.clear(id);
-
-            if (toast == null)
-                continue;
-
-            fireEvent("clear", toast);
+    private void clear(JSONArray args, CallbackContext callbackContext) {
+        for (int argsIndex = 0; argsIndex < args.length(); argsIndex++) {
+            Notification notification = Notification.getFromSharedPreferences(getContext(), args.optInt(argsIndex, 0));
+            if (notification != null) notification.clear();
         }
 
-        command.success();
+        callbackContext.success();
     }
 
     /**
      * Clear all triggered notifications without canceling them.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
-    private void clearAll(CallbackContext command) {
-        getNotMgr().clearAll();
+    private void clearAll(CallbackContext callbackContext) {
+        getManager().clearAll();
         fireEvent("clearall");
-        command.success();
+        callbackContext.success();
     }
 
     /**
      * Get the type of the notification (unknown, scheduled, triggered).
-     *
-     * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
-    private void type (JSONArray args, CallbackContext command) {
-        int id             = args.optInt(0);
-        Notification toast = getNotMgr().get(id);
+    private void type(JSONArray args, CallbackContext callbackContext) {
+        Notification notification = Notification.getFromSharedPreferences(getContext(), args.optInt(0));
 
-        if (toast == null) {
-            command.success("unknown");
+        if (notification == null) {
+            callbackContext.success("unknown");
             return;
         }
 
-        switch (toast.getType()) {
+        switch (notification.getType()) {
             case SCHEDULED:
-                command.success("scheduled");
+                callbackContext.success("scheduled");
                 break;
             case TRIGGERED:
-                command.success("triggered");
+                callbackContext.success("triggered");
                 break;
             default:
-                command.success("unknown");
+                callbackContext.success("unknown");
                 break;
         }
     }
 
     /**
      * Set of IDs from all existent notifications.
-     *
-     * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * @param args Type of notifications to get IDs from.
      */
-    private void ids (JSONArray args, CallbackContext command) {
+    private void ids(JSONArray args, CallbackContext callbackContext) {
         int type    = args.optInt(0);
-        Manager mgr = getNotMgr();
+        Manager mgr = getManager();
         List<Integer> ids;
 
         switch (type) {
             case 0:
-                ids = mgr.getIds();
+                ids = mgr.getNotificationIds();
                 break;
             case 1:
-                ids = mgr.getIdsByType(SCHEDULED);
+                ids = mgr.getNotificationIdsByType(SCHEDULED);
                 break;
             case 2:
-                ids = mgr.getIdsByType(TRIGGERED);
+                ids = mgr.getNotificationIdsByType(TRIGGERED);
                 break;
             default:
                 ids = new ArrayList<Integer>(0);
                 break;
         }
 
-        command.success(new JSONArray(ids));
+        callbackContext.success(new JSONArray(ids));
     }
 
     /**
-     * Options from local notification.
-     *
-     * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
+     * Sends options from a notification to WebView
      */
-    private void notification (JSONArray args, CallbackContext command) {
-        int id       = args.optInt(0);
-        Options opts = getNotMgr().getOptions(id);
+    private void notification(JSONArray args, CallbackContext callbackContext) {
+        Notification notification = Notification.getFromSharedPreferences(getContext(), args.optInt(0));
 
-        if (opts != null) {
-            command.success(opts.getDict());
+        if (notification != null) {
+            callbackContext.success(notification.getOptions().getJSON());
         } else {
-            command.success();
+            callbackContext.success();
         }
     }
 
     /**
      * Set of options from local notification.
-     *
-     * @param args    The exec() arguments in JSON form.
-     * @param command The callback context used when calling back into
-     *                JavaScript.
      */
-    private void notifications (JSONArray args, CallbackContext command) {
-        int type      = args.optInt(0);
+    private void notifications(JSONArray args, CallbackContext callbackContext) {
+        int type = args.optInt(0);
         JSONArray ids = args.optJSONArray(1);
-        Manager mgr   = getNotMgr();
-        List<JSONObject> options;
+        List<Notification> notifications = new ArrayList<Notification>();
 
         switch (type) {
             case 0:
-                options = mgr.getOptions();
+                notifications = getManager().getNotificationsFromSharedPreferences();
                 break;
             case 1:
-                options = mgr.getOptionsByType(SCHEDULED);
+                notifications = getManager().getByType(SCHEDULED);
                 break;
             case 2:
-                options = mgr.getOptionsByType(TRIGGERED);
+                notifications = getManager().getByType(TRIGGERED);
                 break;
             case 3:
-                options = mgr.getOptionsById(toList(ids));
-                break;
-            default:
-                options = new ArrayList<JSONObject>(0);
+                notifications = getManager().getNotificationsFromSharedPreferences(toList(ids));
                 break;
         }
 
-        command.success(new JSONArray(options));
+        ArrayList<JSONObject> options = new ArrayList<JSONObject>();
+
+        for (Notification notification : notifications) {
+            options.add(notification.getOptions().getJSON());
+        }
+
+        callbackContext.success(new JSONArray(options));
     }
     /**
      * Open the Android Notification settings for current app.
-     *
-     * @param command The callback context used when calling back into JavaScript.
      */
-    private void openNotificationSettings (CallbackContext command) {
+    private void openNotificationSettings(CallbackContext callbackContext) {
         String packageName = cordova.getActivity().getPackageName();
         Intent intent = new Intent();
 
@@ -559,26 +530,80 @@ public class LocalNotification extends CordovaPlugin {
         }
 
         cordova.getActivity().startActivity(intent);
-
-        command.success();
+        callbackContext.success();
     }
 
     /**
      * Open the Alarms & Reminders setting for the current app.
      * This setting is available since Android 12 (SDK 31). If this method is called on
-     * Android 11 (SDK 30) or older, the method will just call command.success().
-     * 
-     * @param command The callback context used when calling back into JavaScript.
+     * Android 11 (SDK 30) or older, the method will just call callbackContext.success().
      */
-    private void openAlarmSettings (CallbackContext command) {
+    private void openAlarmSettings(CallbackContext callbackContext) {
         // Setting available since Android 12 (SDK 31)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            String packageName = cordova.getActivity().getPackageName();
-            Intent intent = new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:" + packageName));
-            cordova.getActivity().startActivity(intent);
+            cordova.getActivity().startActivity(new Intent(
+                Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                Uri.parse("package:" + cordova.getActivity().getPackageName())));
         }
 
-        command.success();
+        callbackContext.success();
+    }
+
+    /**
+     * Returns the status of Unused App Restrictions, which was introduced in Android 11 and
+     * backported to Android 6 to 10 through the Google Play Store.
+     * @return int @see UnusedAppRestrictionsConstants
+     * @see https://developer.android.com/topic/performance/app-hibernation
+     */
+    private void getUnusedAppRestrictionsStatus(CallbackContext callbackContext) {
+        ListenableFuture<Integer> listenableFuture = PackageManagerCompat.getUnusedAppRestrictionsStatus(getContext());
+        listenableFuture.addListener(new Runnable() {
+            public void run() {
+                try {
+                    callbackContext.success(listenableFuture.get());
+                } catch (Exception exception) {
+                    callbackContext.success(UnusedAppRestrictionsConstants.ERROR);
+                }
+            }
+          }, ContextCompat.getMainExecutor(getContext()));
+    }
+
+    /**
+     * Starts an Intent to redirect the user to manage their unused app restriction settings.
+     */
+    private void openManageUnusedAppRestrictions(CallbackContext callbackContext) {
+        Intent intent = IntentCompat.createManageUnusedAppRestrictionsIntent(
+            getContext(), cordova.getActivity().getApplicationContext().getPackageName());
+        
+        // Store the callback context for later use in onActivityResult to inform the webview
+        CallbackContextUtil.storeContext(callbackContext, REQUEST_CODE_MANAGE_UNUSED_APP_RESTRICTIONS);
+
+        // Start the activity
+        this.cordova.startActivityForResult(this, intent, REQUEST_CODE_MANAGE_UNUSED_APP_RESTRICTIONS);
+    }
+
+    /**
+     * Called when an activity launched exits, giving the requestCode started it with,
+     * the resultCode it returned, and any additional data from it.
+     * @param requestCode The request code originally supplied to startActivityForResult(), allowing you to
+     * identify who this result came from.
+     * @param resultCode The integer result code returned by the child activity through its setResult().
+     * @param intent An Intent, which can return result data to the caller (various data can be attached to Intent "extras").
+     */
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
+        Log.d(TAG, "onActivityResult" + 
+            ", requestCode=" + requestCode +
+            ", resultCode=" + resultCode +
+            ", intent=" + intent);
+
+        // Get the saved CallbackContext for the request code
+        CallbackContext callbackContext = CallbackContextUtil.getCallbackContext(requestCode);
+
+        if (callbackContext != null) callbackContext.success(resultCode);
+
+        // Remove the saved CallbackContext
+        CallbackContextUtil.clearContext(requestCode);
     }
 
     /**
@@ -595,15 +620,11 @@ public class LocalNotification extends CordovaPlugin {
     }
 
     /**
-     * Invoke success callback with a single boolean argument.
-     *
-     * @param command The callback context used when calling back into
-     *                JavaScript.
-     * @param arg     The single argument to pass through.
+     * Helper method to invoke the {@link CallbackContext} with a boolean argument,
+     * because there does not exists a success method with a boolean in {@link CallbackContext}.
      */
-    private void success(CallbackContext command, boolean arg) {
-        PluginResult result = new PluginResult(PluginResult.Status.OK, arg);
-        command.sendPluginResult(result);
+    private void successBoolean(CallbackContext callbackContext, boolean success) {
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, success));
     }
 
     /**
@@ -611,8 +632,8 @@ public class LocalNotification extends CordovaPlugin {
      *
      * @param event The event name.
      */
-    private void fireEvent (String event) {
-        fireEvent(event, null, new JSONObject());
+    private void fireEvent(String event) {
+        fireEvent(event, null, null);
     }
 
     /**
@@ -621,46 +642,42 @@ public class LocalNotification extends CordovaPlugin {
      * @param event        The event name.
      * @param notification Optional notification to pass with.
      */
-    static void fireEvent (String event, Notification notification) {
-        fireEvent(event, notification, new JSONObject());
+    public static void fireEvent(String event, Notification notification) {
+        fireEvent(event, notification, null);
     }
 
     /**
      * Fire given event on JS side. Does inform all event listeners.
      *
      * @param event The event name.
-     * @param toast Optional notification to pass with.
-     * @param data  Event object with additional data.
+     * @param notification Optional notification to pass with.
+     * @param eventData Event object with additional data.
      */
-    static void fireEvent (String event, Notification toast, JSONObject data) {
-        String params, js;
+    public static void fireEvent(String event, Notification notification, JSONObject eventData) {
+        if (eventData == null) eventData = new JSONObject();
 
         try {
-            data.put("event", event);
-            data.put("foreground", isInForeground());
-            data.put("queued", !deviceready);
-
-            if (toast != null) {
-                data.put("notification", toast.getId());
-            }
-        } catch (JSONException e) {
-            e.printStackTrace();
+            eventData.put("event", event);
+            eventData.put("foreground", isInForeground());
+            eventData.put("queued", !deviceready);
+            // Set notification id
+            if (notification != null) eventData.put("notification", notification.getId());
+        } catch (JSONException exception) {
+            exception.printStackTrace();
         }
 
-        if (toast != null) {
-            params = toast.toString() + "," + data.toString();
-        } else {
-            params = data.toString();
+        if (launchDetails == null && !deviceready && notification != null) {
+            launchDetails = new Pair<Integer, String>(notification.getId(), event);
         }
 
-        js = "cordova.plugins.notification.local.fireEvent(" +
-                "\"" + event + "\"," + params + ")";
-
-        if (launchDetails == null && !deviceready && toast != null) {
-            launchDetails = new Pair<Integer, String>(toast.getId(), event);
-        }
-
-        sendJavascript(js);
+        sendJavascript(String.format(
+            "cordova.plugins.notification.local.fireEvent('%s', %s)",
+            event,
+            // params
+            // notification
+            (notification != null ? notification.getOptions().toString() + ", " : "")
+            // event data
+            + eventData.toString()));
     }
 
     /**
@@ -670,16 +687,16 @@ public class LocalNotification extends CordovaPlugin {
      */
     private static synchronized void sendJavascript(final String js) {
 
-        if (!deviceready || webView == null) {
+        if (!deviceready || weakReferenceCordovaWebView == null) {
             eventQueue.add(js);
             return;
         }
 
-        final CordovaWebView view = webView.get();
+        final CordovaWebView cordovaWebView = weakReferenceCordovaWebView.get();
 
-        ((Activity)(view.getContext())).runOnUiThread(new Runnable() {
+        ((Activity)(cordovaWebView.getContext())).runOnUiThread(new Runnable() {
             public void run() {
-                view.loadUrl("javascript:" + js);
+                cordovaWebView.loadUrl("javascript:" + js);
             }
         });
     }
@@ -687,40 +704,63 @@ public class LocalNotification extends CordovaPlugin {
     /**
      * If the app is running in foreground.
      */
-    public static boolean isInForeground() {
+    private static boolean isInForeground() {
+        if (!deviceready || weakReferenceCordovaWebView == null) return false;
 
-        if (!deviceready || webView == null)
-            return false;
+        CordovaWebView cordovaWebView = weakReferenceCordovaWebView.get();
 
-        CordovaWebView view = webView.get();
+        // Class to manage and query the state of the lock screen (also known as Keyguard).
+        KeyguardManager km = (KeyguardManager) cordovaWebView.getContext().getSystemService(Context.KEYGUARD_SERVICE);
 
-        KeyguardManager km = (KeyguardManager) view.getContext()
-                .getSystemService(Context.KEYGUARD_SERVICE);
-
-        //noinspection SimplifiableIfStatement
-        if (km != null && km.isKeyguardLocked())
-            return false;
-
-        return view.getView().getWindowVisibility() == View.VISIBLE;
+        // - km can be null if running as an instant app
+        // - Only true, if lock screen is not visible and the app is visible.
+        return (km == null || (km != null && !km.isKeyguardLocked())) && cordovaWebView.getView().getWindowVisibility() == View.VISIBLE;
     }
 
     /**
      * If the app is running.
      */
-    static boolean isAppRunning() {
-        return webView != null;
+    public static boolean isAppRunning() {
+        return weakReferenceCordovaWebView != null;
+    }
+
+    /**
+     * Launch main intent from package.
+     */
+    public static void launchApp(Context context) {
+        // Returns a "good" intent to launch a front-door activity in a package.
+        // The current implementation looks first for a main activity in the category
+        // Intent.CATEGORY_INFO, and next for a main activity
+        // in the category Intent.CATEGORY_LAUNCHER.
+        // Returns null if neither are found.
+        Intent launchIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
+        if (launchIntent == null) {
+            Log.e(TAG, "Could not launch app, launch intent not found for package: " + context.getPackageName());
+            return;
+        }
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        Log.d(TAG, "Launching app");
+        context.startActivity(launchIntent);
+    }
+
+    /**
+     * Get the app name.
+     * @return String App name.
+     */
+    public static String getAppName(Context context) {
+        return (String) context.getPackageManager().getApplicationLabel(context.getApplicationInfo());
     }
 
     /**
      * Convert JSON array of integers to List.
      *
-     * @param ary Array of integers.
+     * @param jsonArray Array of integers.
      */
-    private List<Integer> toList (JSONArray ary) {
+    private List<Integer> toList(JSONArray jsonArray) {
         List<Integer> list = new ArrayList<Integer>();
 
-        for (int i = 0; i < ary.length(); i++) {
-            list.add(ary.optInt(i));
+        for (int index = 0; index < jsonArray.length(); index++) {
+            list.add(jsonArray.optInt(index));
         }
 
         return list;
@@ -729,22 +769,11 @@ public class LocalNotification extends CordovaPlugin {
     /**
      * Notification manager instance.
      */
-    private Manager getNotMgr() {
-        return Manager.getInstance(cordova.getActivity());
+    private Manager getManager() {
+        return new Manager(getContext());
     }
 
-    public void onRequestPermissionResult(int requestCode, String[] permissions, int[] grantResults) {
-        try {
-            CallbackContext context = CallbackContextUtil.getContext(requestCode);
-            CallbackContextUtil.clearContext(requestCode);
-
-            success(context, grantResults[0] == PackageManager.PERMISSION_GRANTED);
-        } catch (Exception e) {
-            String error = "Exception occurred onRequestPermissionsResult: ".concat(e.getMessage());
-            Log.e(TAG, error);
-        }
+    private Context getContext() {
+        return cordova.getActivity();
     }
-
 }
-
-// codebeat:enable[TOO_MANY_FUNCTIONS]

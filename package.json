@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-local-notification",
-  "version": "1.0.1-dev",
+  "version": "1.2.4",
   "description": "Schedules and queries for local notifications",
   "cordova": {
     "id": "cordova-plugin-local-notification",
@@ -14,29 +14,37 @@
     "url": "git+https://github.com/katzer/cordova-plugin-local-notifications.git"
   },
   "keywords": [
-    "appplant",
     "notification",
     "local notification",
     "user notification",
+    "schedule notification",
     "ecosystem:cordova",
     "cordova-ios",
     "cordova-android"
   ],
   "engines": {
     "cordovaDependencies": {
-      "1.0.0": {
-        "cordova": ">=12.0.0",
-        "cordova-android": ">=13.0.0",
-        "cordova-ios": ">=10.0.0"
-      },
       "0.9.0-beta.3": {
         "cordova": ">=3.6.0",
         "cordova-android": ">=6.0.0",
-        "cordova-ios": ">=10.0.0"
+        "cordova-ios": ">=4.3.0",
+        "cordova-plugin-device": ">=2.0.0"
+      },
+      "1.0.0": {
+        "cordova": ">=12.0.0",
+        "cordova-android": ">=13.0.0",
+        "cordova-ios": ">=7.0.0",
+        "cordova-plugin-device": ">=3.0.0"
       }
     }
   },
   "author": "Sebastián Katzer",
+  "contributors": [{
+    "name": "Manuel Beck",
+    "email": "email@manuelbeck.software",
+    "url": "https://manuelbeck.software"
+  }],
+  "funding": "https://github.com/sponsors/GitToTheHub",
   "license": "Apache 2.0",
   "bugs": {
     "url": "https://github.com/katzer/cordova-plugin-local-notifications/issues"
